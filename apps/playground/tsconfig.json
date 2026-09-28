@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "paths": {
+      "@dawartodo/bot-avatar": ["../../packages/bot-avatar/src/index.ts"],
+      "@dawartodo/bot-avatar/react": ["../../packages/bot-avatar/src/react.tsx"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "bot-avatar-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @dawartodo/avatar-playground",
+    "build": "npm run build --workspace @dawartodo/bot-avatar && npm run build --workspace @dawartodo/avatar-playground",
+    "typecheck": "tsc -p packages/bot-avatar/tsconfig.json --noEmit && tsc -p apps/playground/tsconfig.json --noEmit",
+    "test": "tsx --test packages/bot-avatar/tests/*.test.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "prettier": "^3.9.9",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

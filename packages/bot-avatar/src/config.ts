@@ -1,0 +1,116 @@
+export const SHAPES = ['circle', 'square', 'triangle'] as const;
+export const STATES = ['idle', 'working'] as const;
+export const MOTION_STYLES = ['organic', 'springy', 'precise'] as const;
+export const PALETTE = {
+  lilac: '#ADA0E8',
+  mint: '#9BC9B0',
+  coral: '#EF9988',
+  sky: '#91B9DA',
+  butter: '#EACB79',
+  graphite: '#73798B',
+} as const;
+export type Shape = (typeof SHAPES)[number];
+export type BotState = (typeof STATES)[number];
+export type MotionStyle = (typeof MOTION_STYLES)[number];
+export type BotColor = keyof typeof PALETTE | `#${string}`;
+export type ReducedMotion = 'system' | 'always' | 'never';
+export interface AvatarConfig {
+  shape: Shape;
+  color: BotColor;
+  state: BotState;
+  motion: MotionStyle;
+  /** Stable identity controls blink timing, gaze, and phase. */
+  seed: string | number;
+  /** 0..1. Expression still communicates state at zero intensity. */
+  intensity: number;
+  /** 0.25..2. Time multiplier; does not change transition duration. */
+  speed: number;
+  /** Approximate settling time in milliseconds (150..2000). */
+  transitionMs: number;
+  paused: boolean;
+  reducedMotion: ReducedMotion;
+  shadow: boolean;
+}
+export const DEFAULT_CONFIG: Readonly<AvatarConfig> = Object.freeze({
+  shape: 'circle',
+  color: 'lilac',
+  state: 'idle',
+  motion: 'organic',
+  seed: 'littlebot',
+  intensity: 0.6,
+  speed: 1,
+  transitionMs: 700,
+  paused: false,
+  reducedMotion: 'system',
+  shadow: false,
+});
+export function resolveColor(color: BotColor): string {
+  if (Object.prototype.hasOwnProperty.call(PALETTE, color))
+    return PALETTE[color as keyof typeof PALETTE];
+  if (typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)) return color.toUpperCase();
+  throw new TypeError('Avatar color must be a palette name or a six-digit hex color.');
+}
+export function normalizeConfig(
+  input: Partial<AvatarConfig> = {},
+  base: AvatarConfig = { ...DEFAULT_CONFIG },
+): AvatarConfig {
+  // Copy only known, defined values. This also makes partially specified React props safe.
+  const config = { ...base };
+  for (const key of Object.keys(DEFAULT_CONFIG) as (keyof AvatarConfig)[]) {
+    if (input[key] !== undefined) Object.assign(config, { [key]: input[key] });
+  }
+  const check = (valid: boolean, key: string) => {
+    if (!valid) throw new TypeError(`Invalid avatar ${key}.`);
+  };
+  check(SHAPES.includes(config.shape), 'shape');
+  check(STATES.includes(config.state), 'state');
+  check(MOTION_STYLES.includes(config.motion), 'motion');
+  check(['system', 'always', 'never'].includes(config.reducedMotion), 'reducedMotion');
+  check(
+    typeof config.seed === 'string' ||
+      (typeof config.seed === 'number' && Number.isFinite(config.seed)),
+    'seed',
+  );
+  for (const [key, min, max] of [
+    ['intensity', 0, 1],
+    ['speed', 0.25, 2],
+    ['transitionMs', 150, 2000],
+  ] as const) {
+    check(
+      typeof config[key] === 'number' &&
+        Number.isFinite(config[key]) &&
+        config[key] >= min &&
+        config[key] <= max,
+      key,
+    );
+  }
+  check(
+    typeof config.paused === 'boolean' && typeof config.shadow === 'boolean',
+    'boolean options',
+  );
+  resolveColor(config.color);
+  return config;
+}
+export function hashSeed(seed: string | number): number {
+  let hash = 2166136261;
+  for (const character of String(seed)) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  return hash >>> 0;
+}
+/** Derive a stable visual identity from a thread/bot ID. No backend needed. */
+export function identityFromSeed(
+  seed: string | number,
+): Pick<AvatarConfig, 'seed' | 'shape' | 'color'> {
+  const hash = hashSeed(seed);
+  const colors = Object.keys(PALETTE) as (keyof typeof PALETTE)[];
+  return {
+    seed,
+    shape: SHAPES[hash % SHAPES.length]!,
+    color: colors[Math.floor(hash / 3) % colors.length]!,
+  };
+}
+export function parseConfig(json: string): AvatarConfig {
+  const input: unknown = JSON.parse(json);
+  if (!input || typeof input !== 'object' || Array.isArray(input))
+    throw new TypeError('Expected an avatar configuration object.');
+  return normalizeConfig(input as Partial<AvatarConfig>);
+}
