@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. The requested remote preview is [littlebot.mykiosk.app](https://littlebot.mykiosk.app); see [tunnel operation](docs/TUNNEL.md). The preview works without a backend, account, API key, external font, or image service.
+Open http://127.0.0.1:5173. The requested remote preview is [littlebot.mykiosk.app](https://littlebot.mykiosk.app). If that hostname has a cached DNS error, use the browser-verified [fresh preview](https://littlebot-preview.mykiosk.app); see [tunnel operation](docs/TUNNEL.md). The preview works without a backend, account, API key, external font, or image service.
 
 - **Shapes:** circle, rounded square, rounded triangle, cloud, star, hexagon. Shape changes morph continuously.
 - **Colors:** rich lilac, mint, coral, sky, butter, graphite. The API also accepts six-digit hex colors.
