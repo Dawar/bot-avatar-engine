@@ -4,6 +4,7 @@ import { AvatarEngine, type AvatarEvent } from '../src/engine.js';
 import { advanceSpring, samplePose } from '../src/motion.js';
 import {
   DEFAULT_CONFIG,
+  EMOTIONS,
   SHAPES,
   identityFromSeed,
   normalizeConfig,
@@ -85,6 +86,7 @@ test('bad runtime configuration is rejected atomically', () => {
   const engine = new AvatarEngine();
   for (const options of [
     { state: 'missing' },
+    { emotion: 'missing' },
     { intensity: NaN },
     { speed: Infinity },
     { speed: 0 },
@@ -116,15 +118,19 @@ test('logging records lifecycle and one completion without per-frame flooding', 
   const events: AvatarEvent[] = [];
   const engine = new AvatarEngine({}, (event) => events.push(event));
   run(engine, 3);
-  assert.equal(events.length, 1);
+  assert.equal(events.filter((event) => event.type !== 'emotion-change').length, 1);
   engine.setOptions({ state: 'working' });
   run(engine, 3);
   assert.deepEqual(
-    events.map((e) => e.type),
+    events.filter((event) => event.type !== 'emotion-change').map((e) => e.type),
     ['created', 'updated', 'transition-start', 'transition-settled'],
   );
   run(engine, 10);
-  assert.equal(events.length, 4);
+  assert.equal(events.filter((event) => event.type !== 'emotion-change').length, 4);
+  const emotions = events.filter((event) => event.type === 'emotion-change');
+  assert.ok(emotions.length >= 6 && emotions.length < 15);
+  for (let i = 1; i < emotions.length; i++)
+    assert.notEqual(emotions[i]!.details.to, emotions[i - 1]!.details.to);
 });
 test('repeated transitions keep all geometry and motion finite', () => {
   const engine = new AvatarEngine();
@@ -210,5 +216,107 @@ test('idle spins are occasional, seed-staggered, and can be disabled', () => {
     run(engine, 26);
     const spins = events.filter((event) => event.type === 'emote-start');
     assert.equal(spins.length > 0, options.playful && options.motion === 'organic');
+  }
+});
+
+test('working shows the whole effort story while remaining in the working activity', () => {
+  const events: AvatarEvent[] = [];
+  const engine = new AvatarEngine({ state: 'working', playful: false }, (event) =>
+    events.push(event),
+  );
+  run(engine, 14);
+  assert.deepEqual(
+    events
+      .filter((event) => event.type === 'emotion-change')
+      .map((event) => event.details.to)
+      .slice(0, 7),
+    ['focused', 'determined', 'frustrated', 'thinking', 'testing', 'happy', 'focused'],
+  );
+  assert.equal(engine.getConfig().state, 'working');
+});
+test('idle wanders reproducibly with varied holds and different identities', () => {
+  const sequence = (seed: string) => {
+    const result: { emotion: unknown; time: number }[] = [];
+    const engine = new AvatarEngine({ seed, playful: false }, (event) => {
+      if (event.type === 'emotion-change')
+        result.push({ emotion: event.details.to, time: Number(event.details.animationTime) });
+    });
+    run(engine, 90);
+    assert.ok(result.length > 15 && result.length < 40);
+    assert.ok(new Set(result.map((item) => item.emotion)).size >= 4);
+    for (let i = 1; i < result.length; i++) {
+      assert.notEqual(result[i]!.emotion, result[i - 1]!.emotion);
+      assert.ok(result[i]!.time - result[i - 1]!.time > 1);
+    }
+    return result;
+  };
+  assert.deepEqual(sequence('milo'), sequence('milo'));
+  assert.notDeepEqual(sequence('milo'), sequence('fern'));
+});
+test('emotions retarget without jumps, stay independent of activity, and return to auto', () => {
+  const engine = new AvatarEngine({ state: 'working', playful: false });
+  const before = run(engine, 4);
+  engine.setOptions({ emotion: 'curious' });
+  assert.deepEqual(engine.step(0), before);
+  const curious = run(engine, 1);
+  assert.equal(curious.emotion, 'curious');
+  assert.ok(curious.pose.eyeHeight > 20);
+  engine.setOptions({ emotion: 'frustrated' });
+  assert.deepEqual(engine.step(0), curious);
+  const frustrated = run(engine, 1);
+  assert.equal(frustrated.emotion, 'frustrated');
+  assert.ok(frustrated.pose.eyeTilt > 30);
+  engine.setOptions({ emotion: 'happy' });
+  const happy = run(engine, 1);
+  assert.equal(happy.emotion, 'happy');
+  assert.ok(happy.pose.eyeCurve > 0.99);
+  assert.equal(engine.getConfig().state, 'working');
+  engine.setOptions({ emotion: 'auto' });
+  assert.deepEqual(engine.step(0), happy);
+  const automatic = new Set<string>();
+  for (let i = 0; i < 14; i++) automatic.add(run(engine, 1).emotion);
+  assert.ok(automatic.has('focused') && automatic.has('frustrated') && automatic.has('happy'));
+});
+test('automatic behaviors and explicit expressions honor pause and reduced motion', () => {
+  for (const state of ['idle', 'working'] as const) {
+    const engine = new AvatarEngine({ state, playful: false });
+    const moving = run(engine, 5);
+    engine.setOptions({ paused: true });
+    assert.deepEqual(run(engine, 20), moving);
+    engine.setOptions({ paused: false, reducedMotion: 'always' });
+    const still = engine.step(0);
+    assert.deepEqual(run(engine, 20), still);
+    for (const emotion of EMOTIONS) {
+      engine.setOptions({ emotion });
+      const expression = engine.step(0);
+      assert.equal(expression.emotion, emotion);
+      assert.deepEqual(run(engine, 1), expression);
+    }
+  }
+});
+test('emotion transitions and timeline boundaries match across frame rates', () => {
+  for (const state of ['idle', 'working'] as const) {
+    const frames = [30, 60, 120].map((fps) => {
+      const engine = new AvatarEngine({ state, playful: false });
+      run(engine, 11, fps);
+      engine.setOptions({ emotion: 'frustrated' });
+      return run(engine, 0.5, fps);
+    });
+    for (const frame of frames) {
+      assert.equal(frame.emotion, frames[0]!.emotion);
+      for (const key of Object.keys(frame.pose) as (keyof typeof frame.pose)[])
+        near(frame.pose[key], frames[0]!.pose[key]);
+    }
+  }
+});
+
+test('thinking keeps both eyes equally sized and level within the face', () => {
+  const engine = new AvatarEngine({ emotion: 'thinking', playful: false });
+  for (let i = 0; i < 180; i++) {
+    const { pose } = engine.step(1 / 60);
+    assert.equal(pose.eyeAsymmetry, 0);
+    assert.equal(pose.eyeLift, 0);
+    assert.equal(pose.eyeTilt, 0);
+    assert.ok(pose.gazeY < 0);
   }
 });

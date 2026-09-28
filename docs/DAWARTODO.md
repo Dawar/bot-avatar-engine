@@ -44,7 +44,9 @@ export function ThreadAvatar({
 }
 ```
 
-Use the same React key while status changes; remounting an avatar resets its local animation clock. Feed existing subscriptions or job events into the `running` prop. Map real statuses in the consuming app once its requirements are known. This prototype deliberately defines only `idle` and `working`. Transient expressions use `avatarRef.current?.play('spin')`; they do not replace the current state. Use `playful={false}` to suppress spontaneous idle spins in dense task lists.
+Use the same React key while status changes; remounting an avatar resets its local animation clock. Feed existing subscriptions or job events into the `running` prop. Map real statuses in the consuming app once its requirements are known. This prototype deliberately defines only `idle` and `working`. One-shot gestures use `avatarRef.current?.play('spin')`; they do not replace the current state. Use `playful={false}` to suppress spontaneous idle spins in dense task lists.
+
+Activity and emotion are independent: `state="working" emotion="auto"` plays the effort loop; `emotion="frustrated"` or `emotion="happy"` can instead be driven by actual retry/test events. Return to `emotion="auto"` to resume the activity recipe. Automatic happiness is a personality cue, not proof a job succeeded. Preserve the real domain status in DawarTodo; the avatar never changes it. The preview exposes individual emotions for comparison.
 
 ## Operational behavior
 
@@ -59,6 +61,6 @@ Use the same React key while status changes; remounting an avatar resets its loc
 
 ## Extending the engine
 
-Add state semantics to `BotState`/`STATES` and define their poses and blend targets in the core. Keep the app's domain statuses outside the renderer. Add palette colors centrally in `config.ts`; keep geometry in `geometry.ts`. The playground consumes these shared definitions, and its controls use global Tailwind utilities and shared primitives.
+Add an activity recipe to `STATE_BEHAVIORS` in `behaviors.ts`; `BotState`, `STATES`, validation, and spring blending derive from it. Add a reusable emotion to `EMOTIONS` and its exhaustive pose sampler in `motion.ts`. The renderer consumes numeric pose channels and does not branch on emotion names. The current extension boundary is source-level; there is no runtime plugin registration. Keep the app's domain statuses outside the renderer. Add palette colors centrally in `config.ts`; keep geometry in `geometry.ts`. The playground consumes these shared definitions, and its controls use global Tailwind utilities and shared primitives.
 
 The UI name “Littlebot” is just the studio identity. The distributable package uses the DawarTodo scope and has no coupling to that branding.

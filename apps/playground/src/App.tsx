@@ -88,16 +88,17 @@ export function App() {
   }, [toast]);
   useEffect(() => {
     if (!cycle || config.paused) return;
-    const id = setInterval(
+    const id = setTimeout(
       () =>
         setConfig((current) => ({
           ...current,
           state: current.state === 'idle' ? 'working' : 'idle',
+          emotion: 'auto',
         })),
-      5000,
+      config.state === 'working' ? 15000 / config.speed : 5000,
     );
-    return () => clearInterval(id);
-  }, [cycle, config.paused]);
+    return () => clearTimeout(id);
+  }, [cycle, config.paused, config.state, config.speed]);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -271,7 +272,7 @@ export function App() {
                 {(['idle', 'working'] as const).map((state) => (
                   <button
                     key={state}
-                    onClick={() => patch({ state })}
+                    onClick={() => patch({ state, emotion: 'auto' })}
                     className={state === config.state ? 'button-primary' : 'button'}
                     aria-pressed={state === config.state}
                   >
@@ -341,8 +342,8 @@ export function App() {
           <div className="panel mt-4 p-5 text-xs leading-6 text-muted">
             <p>
               Choose a shape and color, then try a state and motion style. Auto-cycle switches
-              between idle and working every five seconds. Press Space outside a control to pause.
-              Your choices are saved in this browser.
+              between five seconds of idle and a full working loop. Press Space outside a control to
+              pause. Your choices are saved in this browser.
             </p>
             <p className="mt-2">
               Share preset puts the configuration in a link. SVG downloads are still snapshots; use

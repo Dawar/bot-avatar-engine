@@ -37,3 +37,14 @@ The preview remains available at http://127.0.0.1:5173 while the development ser
 - Installed the updated package tarball in a fresh temporary directory with React/ReactDOM 19.2.6. Verified all six shapes, the compiled spin API and hidden-back pose, and React server rendering without leaking the `playful` configuration into SVG attributes.
 - The ERD preview is now public at https://littlebot.mykiosk.app; see TUNNEL.md for verified readiness and the local DNS-cache limitation encountered at startup. The earlier note about no public deployment describes the initial version.
 - After the requested restart, the original tunnel serves HTTPS successfully with the DNS address supplied explicitly, but the local resolver retains its missing-name cache. The fresh URL https://littlebot-preview.mykiosk.app returns HTTPS 200 with normal DNS and loads the full studio in the browser; both ERD tunnels report their connectors and origins ready.
+
+## Activity and emotion behavior
+
+- All **22 tests** pass, along with both typechecks and production builds. New coverage checks the full working sequence, reproducible varied idle behavior, independent emotion overrides and interrupted transitions, pause/reduced motion, bounded emotion-change logging, and behavior timing at 30/60/120 Hz.
+- Browser inspected angry squints, body compression, happy crescent eyes, and the reusable expression preview controls. Catchlight radii remain 2.6, 2.5, and 1.15 with no reflection transforms.
+- The idle preview moved between automatic expressions. Curious and sleepy overrides, editing an expression while paused, resuming, and returning to automatic behavior worked. No browser errors or warnings were observed.
+- The public preview returned HTTP 200 after restarting the local development server; the existing ERD preview connector and origin remain ready.
+- `state` stays independent of `emotion`; an automatic happy expression does not report application success or completion. Only idle and working activity states are implemented. Source-level extension points are documented in the package reference and DawarTodo notes.
+
+- Thinking was refined after visual feedback: equally sized, level eyes with an upward glance and gentler head tilt. A regression check preserves that symmetry. The updated package installs independently and exposes all nine expressions, the catalogs, backward-compatible presets, and the React adapter without leaking the emotion prop onto SVG.
+- Live development now reloads the studio when the core library changes, because a preserved React controller could otherwise keep using an old motion sampler. Saved preview settings survive the reload.

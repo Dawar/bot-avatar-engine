@@ -1,5 +1,6 @@
+import { EMOTIONS, STATES, hashSeed, type BotState, type Emotion } from './behaviors.js';
+export { EMOTIONS, STATES, hashSeed, type BotState, type Emotion } from './behaviors.js';
 export const SHAPES = ['circle', 'square', 'triangle', 'cloud', 'star', 'hexagon'] as const;
-export const STATES = ['idle', 'working'] as const;
 export const MOTION_STYLES = ['organic', 'springy', 'precise'] as const;
 export const PALETTE = {
   lilac: '#9564F4',
@@ -10,7 +11,6 @@ export const PALETTE = {
   graphite: '#6679B8',
 } as const;
 export type Shape = (typeof SHAPES)[number];
-export type BotState = (typeof STATES)[number];
 export type MotionStyle = (typeof MOTION_STYLES)[number];
 export type BotColor = keyof typeof PALETTE | `#${string}`;
 export type ReducedMotion = 'system' | 'always' | 'never';
@@ -20,6 +20,8 @@ export interface AvatarConfig {
   color: BotColor;
   state: BotState;
   motion: MotionStyle;
+  /** Automatic activity behavior, or an expression driven by application events. */
+  emotion: 'auto' | Emotion;
   /** Stable identity controls blink timing, gaze, and phase. */
   seed: string | number;
   /** 0..1. Expression still communicates state at zero intensity. */
@@ -39,6 +41,7 @@ export const DEFAULT_CONFIG: Readonly<AvatarConfig> = Object.freeze({
   color: 'lilac',
   state: 'idle',
   motion: 'organic',
+  emotion: 'auto',
   seed: 'littlebot',
   intensity: 0.6,
   speed: 1,
@@ -69,6 +72,7 @@ export function normalizeConfig(
   check(SHAPES.includes(config.shape), 'shape');
   check(STATES.includes(config.state), 'state');
   check(MOTION_STYLES.includes(config.motion), 'motion');
+  check(config.emotion === 'auto' || EMOTIONS.includes(config.emotion), 'emotion');
   check(['system', 'always', 'never'].includes(config.reducedMotion), 'reducedMotion');
   check(
     typeof config.seed === 'string' ||
@@ -96,11 +100,6 @@ export function normalizeConfig(
   );
   resolveColor(config.color);
   return config;
-}
-export function hashSeed(seed: string | number): number {
-  let hash = 2166136261;
-  for (const character of String(seed)) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
-  return hash >>> 0;
 }
 /** Derive a stable visual identity from a thread/bot ID. No backend needed. */
 export function identityFromSeed(

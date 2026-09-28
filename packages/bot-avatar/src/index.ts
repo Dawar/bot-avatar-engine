@@ -5,6 +5,8 @@ export {
   PALETTE,
   SHAPES,
   STATES,
+  EMOTIONS,
+  type Emotion,
   MOTION_STYLES,
   identityFromSeed,
   normalizeConfig,
@@ -19,3 +21,4 @@ export {
   type ReducedMotion,
 } from './config.js';
 export { getSchedulerStats } from './scheduler.js';
+export { STATE_BEHAVIORS, type BehaviorRecipe } from './behaviors.js';

@@ -15,10 +15,10 @@ Open http://127.0.0.1:5173. The requested remote preview is [littlebot.mykiosk.a
 
 - **Shapes:** circle, rounded square, rounded triangle, cloud, star, hexagon. Shape changes morph continuously.
 - **Colors:** rich lilac, mint, coral, sky, butter, graphite. The API also accepts six-digit hex colors.
-- **States:** `idle` and `working` (displayed as “Working hard”). Both stay alive with breathing, glances, and blinks.
+- **States:** `idle` and `working` (displayed as “Working hard”). Idle wanders naturally; working cycles through effort, frustration, rethinking, testing, and delight.
 - **Motion:** organic, springy, precise; adjustable intensity, tempo, and transition duration.
 - **Playground:** light/lilac/dark canvases, pause/resume, auto-cycle, 24–96px previews, all 36 color/shape combinations, and stable seeded personalities.
-- **Expressions:** larger glossy anime eyes, curious look-and-linger glances, and narrow slanted working eyes. Circular reflections remain undistorted and are clipped by the eyelids.
+- **Expressions:** nine reusable emotions, independent of activity. Preview one directly or let the activity choose; eyes widen, squint, slant, and become happy crescents while the body leans, scrunches, shakes, and hops. Circular reflections remain undistorted and are clipped by the eyelids.
 - **Emotes:** a hop-and-spin makes the face travel around the silhouette. Try **Do a spin**, call `avatar.play('spin')`, or leave occasional idle spins enabled in Organic/Springy.
 - **Portability:** copy React/vanilla code, export/import JSON, share a preset URL, and download a still SVG snapshot. Configuration saves locally in your browser.
 - **Diagnostics:** lifecycle/state/visibility logs in the studio and opt-in structured library events. No per-frame logging.
@@ -28,6 +28,7 @@ Open http://127.0.0.1:5173. The requested remote preview is [littlebot.mykiosk.a
 ```text
 packages/bot-avatar/       @dawartodo/bot-avatar
   src/config.ts           typed options, validation, palette, stable identity
+  src/behaviors.ts        extensible activity/emotion catalog and seeded timelines
   src/motion.ts           deterministic motion and exact damped springs
   src/geometry.ts         shared-topology SVG shape morphs
   src/engine.ts           pure TypeScript engine; no browser dependency
@@ -65,7 +66,10 @@ const avatar = mountAvatar(document.querySelector<SVGSVGElement>('#bot')!, {
   ...identityFromSeed('thread-123'),
   state: 'idle',
 });
-avatar.setOptions({ state: 'working' });
+avatar.setOptions({ state: 'working', emotion: 'auto' });
+// Optional: drive expressions with real application events.
+avatar.setOptions({ emotion: 'frustrated' });
+avatar.setOptions({ emotion: 'auto' });
 // On view teardown:
 avatar.destroy();
 ```

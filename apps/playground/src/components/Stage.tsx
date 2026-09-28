@@ -1,8 +1,59 @@
 import { Moon, Zap, Pause, Play, Download, Sun, Check, RotateCw } from 'lucide-react';
 import { BotAvatar, type BotAvatarHandle } from '@dawartodo/bot-avatar/react';
-import type { AvatarConfig, AvatarLogger } from '@dawartodo/bot-avatar';
-import { useEffect, useState, type RefObject } from 'react';
+import type { AvatarConfig, AvatarLogger, Emotion } from '@dawartodo/bot-avatar';
+import { useCallback, useEffect, useState, type RefObject } from 'react';
 import { Toggle } from './ui';
+const expressionCopy: Record<Emotion, { label: string; title: string; detail: string }> = {
+  resting: {
+    label: 'Resting',
+    title: 'Just taking it all in.',
+    detail: 'A slow breath. Nothing urgent.',
+  },
+  curious: {
+    label: 'Curious',
+    title: 'Oh? What’s over there?',
+    detail: 'Wide eyes, a little lean, a closer look.',
+  },
+  thinking: {
+    label: 'Thinking',
+    title: 'There must be another way.',
+    detail: 'A gentle tilt. Looking up for a new idea.',
+  },
+  sleepy: {
+    label: 'Sleepy',
+    title: 'Just resting my eyes…',
+    detail: 'Heavy eyelids and a gentle droop.',
+  },
+  focused: {
+    label: 'Focused',
+    title: 'Okay. Let’s figure this out.',
+    detail: 'Eyes narrowed. Leaning into the problem.',
+  },
+  determined: {
+    label: 'Determined',
+    title: 'Come on. Almost there.',
+    detail: 'Digging in, squinting, pushing a little harder.',
+  },
+  frustrated: {
+    label: 'Frustrated',
+    title: 'Why. Won’t. This. Work.',
+    detail: 'A tight squint, a scrunch, a little shake.',
+  },
+  testing: {
+    label: 'Testing',
+    title: 'What if we try this?',
+    detail: 'Checking, watching, waiting for a result.',
+  },
+  happy: {
+    label: 'Happy',
+    title: 'Aha! There it is.',
+    detail: 'Crescent eyes and a little bounce of delight.',
+  },
+};
+const previewEmotions: Record<AvatarConfig['state'], Emotion[]> = {
+  idle: ['resting', 'curious', 'thinking', 'sleepy', 'happy'],
+  working: ['focused', 'determined', 'frustrated', 'thinking', 'testing', 'happy'],
+};
 export type Background = 'paper' | 'lilac' | 'dark';
 export function Stage({
   config,
@@ -28,6 +79,15 @@ export function Stage({
   onSpin: () => void;
 }) {
   const dark = background === 'dark';
+  const [currentEmotion, setCurrentEmotion] = useState<Emotion>('resting');
+  const logEvent = useCallback<AvatarLogger>(
+    (event) => {
+      if (event.type === 'emotion-change') setCurrentEmotion(event.details.to as Emotion);
+      onEvent(event);
+    },
+    [onEvent],
+  );
+  const expression = expressionCopy[currentEmotion];
   const [systemReduced, setSystemReduced] = useState(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
@@ -104,18 +164,14 @@ export function Stage({
               ref={avatarRef}
               {...config}
               size={288}
-              onEvent={onEvent}
+              onEvent={logEvent}
               label={`Your ${config.color} ${config.shape} bot, ${config.state === 'working' ? 'working hard' : 'idle'}`}
             />
           </div>
           <div className="absolute bottom-10 text-center">
-            <p className="text-[15px] font-medium tracking-[-0.2px]">
-              {config.state === 'idle' ? 'Just taking it all in.' : 'A little bot. A lot to do.'}
-            </p>
+            <p className="text-[15px] font-medium tracking-[-0.2px]">{expression.title}</p>
             <p className={`mt-2 text-[11px] ${dark ? 'text-white/45' : 'text-muted'}`}>
-              {config.state === 'idle'
-                ? 'Breathing, blinking, ready when you are.'
-                : 'Focused eyes. Busy mind. Finding a way.'}
+              {expression.detail}
             </p>
           </div>
         </div>
@@ -126,7 +182,7 @@ export function Stage({
               {(['idle', 'working'] as const).map((state) => (
                 <button
                   key={state}
-                  onClick={() => onChange({ state })}
+                  onClick={() => onChange({ state, emotion: 'auto' })}
                   aria-pressed={config.state === state}
                   className={`flex items-center gap-2 rounded-md px-3 py-2 text-[11px] font-medium transition-colors ${config.state === state ? 'bg-white shadow-xs' : 'text-muted hover:text-ink'}`}
                 >
@@ -149,6 +205,50 @@ export function Stage({
             <Toggle label="Auto-cycle states" value={cycle} onChange={onCycle} />
             <span className="text-[11px] text-muted">Auto-cycle</span>
           </div>
+        </div>
+      </section>
+      <section className="panel p-4" aria-label="Emotion previews">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-xs font-semibold">A little emotional range</h2>
+            <p className="mt-1 text-[10px] text-muted">
+              {config.state === 'idle'
+                ? 'Attention wanders naturally. Pick an expression to explore.'
+                : 'Focus → effort → frustration → rethink → test → delight.'}
+            </p>
+          </div>
+          <button
+            className={config.emotion === 'auto' ? 'button-primary' : 'button'}
+            aria-pressed={config.emotion === 'auto'}
+            onClick={() => onChange({ emotion: 'auto' })}
+          >
+            {config.state === 'idle' ? 'Let it wander' : 'Play the work loop'}
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-1 sm:grid-cols-6">
+          {previewEmotions[config.state].map((emotion) => (
+            <button
+              key={emotion}
+              aria-label={`Preview ${expressionCopy[emotion].label.toLowerCase()} expression`}
+              aria-pressed={config.emotion === emotion}
+              onClick={() => onChange({ emotion })}
+              className={`flex flex-col items-center rounded-lg border px-1 py-2 transition-colors ${config.emotion === emotion ? 'border-accent bg-lilac-light text-accent' : 'border-transparent hover:bg-stone-50'}`}
+            >
+              <BotAvatar
+                {...config}
+                emotion={emotion}
+                size={64}
+                shadow={false}
+                playful={false}
+                label={`${emotion} expression`}
+              />
+              <span className="text-[10px]">{expressionCopy[emotion].label}</span>
+              <span
+                aria-hidden="true"
+                className={`mt-1 size-1 rounded-full ${currentEmotion === emotion ? 'bg-accent' : 'bg-transparent'}`}
+              />
+            </button>
+          ))}
         </div>
       </section>
       <section

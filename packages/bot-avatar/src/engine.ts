@@ -1,5 +1,8 @@
 import {
   DEFAULT_CONFIG,
+  STATES,
+  EMOTIONS,
+  type Emotion,
   MOTION_STYLES,
   SHAPES,
   normalizeConfig,
@@ -12,11 +15,12 @@ import {
   advanceSpring,
   applySpin,
   blendPoses,
-  samplePose,
+  sampleEmotions,
   SPIN_DURATION,
   type Pose,
   type Spring,
 } from './motion.js';
+import { BehaviorPlayer, STATE_BEHAVIORS, emotionWeights, initialEmotion } from './behaviors.js';
 import { shapePath } from './geometry.js';
 export interface AvatarFrame {
   pose: Pose;
@@ -25,6 +29,8 @@ export interface AvatarFrame {
   eyeColor: string;
   faceOffsetY: number;
   energy: number;
+  /** Visual expression, independent of application activity or task outcome. */
+  emotion: Emotion;
 }
 export interface AvatarEvent {
   type:
@@ -37,6 +43,7 @@ export interface AvatarEvent {
     | 'emote-start'
     | 'emote-complete'
     | 'emote-skipped'
+    | 'emotion-change'
     | 'destroyed';
   seed: string | number;
   timestamp: number;
@@ -49,7 +56,10 @@ const rgb = (color: string) =>
 export class AvatarEngine {
   private config: AvatarConfig;
   private time = 0;
-  private energy: Spring;
+  private states: Spring[];
+  private emotion: Spring[];
+  private behaviors: BehaviorPlayer[];
+  private lastEmotion: Emotion | undefined;
   private shape: Spring[];
   private style: Spring[];
   private color: Spring[];
@@ -65,7 +75,13 @@ export class AvatarEngine {
     private logger?: AvatarLogger,
   ) {
     this.config = normalizeConfig(options);
-    this.energy = spring(this.config.state === 'working' ? 1 : 0);
+    this.states = STATES.map((state) => spring(Number(state === this.config.state)));
+    this.emotion = ['auto', ...EMOTIONS].map((emotion) =>
+      spring(Number(emotion === this.config.emotion)),
+    );
+    this.behaviors = STATES.map(
+      (state) => new BehaviorPlayer(STATE_BEHAVIORS[state], `${this.config.seed}:${state}`),
+    );
     this.shape = SHAPES.map((shape) => spring(Number(shape === this.config.shape)));
     this.style = MOTION_STYLES.map((style) => spring(Number(style === this.config.motion)));
     this.color = rgb(resolveColor(this.config.color)).map(spring);
@@ -85,11 +101,16 @@ export class AvatarEngine {
     if (!changed.length) return;
     const previousState = this.config.state;
     this.config = next;
-    if (changed.includes('seed')) this.nextSpinAt = this.time + this.spinInterval();
+    if (changed.includes('seed')) {
+      this.nextSpinAt = this.time + this.spinInterval();
+      this.behaviors = STATES.map(
+        (state) => new BehaviorPlayer(STATE_BEHAVIORS[state], `${next.seed}:${state}`),
+      );
+    }
     this.log('updated', { changed, config: this.getConfig() });
     if (
       changed.some((key) =>
-        ['state', 'shape', 'color', 'motion', 'intensity', 'speed'].includes(key),
+        ['state', 'emotion', 'shape', 'color', 'motion', 'intensity', 'speed'].includes(key),
       )
     ) {
       this.transitioning = true;
@@ -130,7 +151,11 @@ export class AvatarEngine {
       ? 0
       : Math.min(Math.max(Number.isFinite(deltaSeconds) ? deltaSeconds : 0, 0), 0.05);
     const targets: [Spring, number][] = [
-      [this.energy, Number(this.config.state === 'working')],
+      ...this.states.map((s, i): [Spring, number] => [s, Number(STATES[i] === this.config.state)]),
+      ...this.emotion.map((s, i): [Spring, number] => [
+        s,
+        Number(['auto', ...EMOTIONS][i] === this.config.emotion),
+      ]),
       [this.intensity, this.config.intensity],
       [this.speed, this.config.speed],
       ...this.shape.map((s, i): [Spring, number] => [s, Number(SHAPES[i] === this.config.shape)]),
@@ -147,6 +172,33 @@ export class AvatarEngine {
       } else advanceSpring(value, target, dt, this.config.transitionMs);
     }
     if (!reduced) this.time += dt * this.speed.value;
+    const energy = this.states[STATES.indexOf('working')]!.value;
+    const stateEmotions = this.behaviors.map((behavior, i) => {
+      if (reduced || this.intensity.value < 0.0001)
+        return emotionWeights(initialEmotion(STATE_BEHAVIORS[STATES[i]!]));
+      const active = STATES[i] === this.config.state || this.states[i]!.value > 0.0001;
+      return behavior.step(active ? dt * this.speed.value : 0);
+    });
+    const expressionWeights = EMOTIONS.map(
+      (_, i) =>
+        this.emotion[0]!.value *
+          stateEmotions.reduce(
+            (sum, emotions, j) => sum + emotions[i]! * this.states[j]!.value,
+            0,
+          ) +
+        this.emotion[i + 1]!.value,
+    );
+    const emotion = EMOTIONS[expressionWeights.indexOf(Math.max(...expressionWeights))]!;
+    if (emotion !== this.lastEmotion) {
+      this.log('emotion-change', {
+        from: this.lastEmotion ?? null,
+        to: emotion,
+        state: this.config.state,
+        mode: this.config.emotion,
+        animationTime: this.time,
+      });
+      this.lastEmotion = emotion;
+    }
     if (this.spinElapsed !== null) {
       this.spinElapsed += reduced ? 0 : dt * this.speed.value;
       if (reduced || this.spinElapsed >= SPIN_DURATION) {
@@ -163,7 +215,9 @@ export class AvatarEngine {
       this.spinElapsed === null &&
       this.config.playful &&
       this.config.state === 'idle' &&
-      this.energy.value < 0.05 &&
+      this.config.emotion === 'auto' &&
+      ['resting', 'curious', 'happy'].includes(emotion) &&
+      energy < 0.05 &&
       this.config.motion !== 'precise' &&
       this.config.intensity > 0 &&
       this.time >= this.nextSpinAt
@@ -188,12 +242,12 @@ export class AvatarEngine {
     const colorValues = this.color.map((s) => Math.round(Math.max(0, Math.min(255, s.value))));
     let pose = blendPoses(
       MOTION_STYLES.map((style) =>
-        samplePose(
+        sampleEmotions(
           this.time,
           this.config.seed,
-          this.energy.value,
           style,
           this.intensity.value,
+          expressionWeights,
           reduced,
         ),
       ),
@@ -206,7 +260,8 @@ export class AvatarEngine {
       color: `rgb(${colorValues.join(',')})`,
       eyeColor: '#252536',
       faceOffsetY: weights[2]! * 10,
-      energy: this.energy.value,
+      energy,
+      emotion,
     };
   }
   log(type: AvatarEvent['type'], details: AvatarEvent['details'] = {}): void {

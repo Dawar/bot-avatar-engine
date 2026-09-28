@@ -1,5 +1,6 @@
 import { AvatarEngine, type AvatarFrame, type AvatarLogger } from './engine.js';
 import { type AvatarConfig, type AvatarEmote } from './config.js';
+import { eyePath } from './motion.js';
 import { subscribe } from './scheduler.js';
 const NS = 'http://www.w3.org/2000/svg';
 function element<K extends keyof SVGElementTagNameMap>(
@@ -39,7 +40,7 @@ export function mountAvatar(
       : undefined;
   const engine = new AvatarEngine(options, logger);
   const originalNodes = Array.from(svg.childNodes);
-  const attributeNames = ['viewBox', 'role', 'aria-label', 'xmlns'];
+  const attributeNames = ['viewBox', 'role', 'aria-label', 'xmlns', 'data-emotion'];
   const originalAttributes = attributeNames.map((name) => [name, svg.getAttribute(name)] as const);
   svg.setAttribute('viewBox', '0 0 128 128');
   svg.setAttribute('xmlns', NS);
@@ -74,10 +75,10 @@ export function mountAvatar(
   const faceViewport = element('g', { 'clip-path': `url(#${avatarId}-body)` });
   const eyes = [-12, 12].map((x, index) => {
     const group = element('g', { 'data-part': 'eye' });
-    const iris = element('ellipse', { rx: '1', ry: '1', 'data-part': 'eye-shape' });
+    const iris = element('path', { 'data-part': 'eye-shape' });
     const clipId = `${avatarId}-eye-${index}`;
     const clip = element('clipPath', { id: clipId, clipPathUnits: 'userSpaceOnUse' });
-    const eyelid = element('ellipse', { rx: '1', ry: '1' });
+    const eyelid = element('path');
     clip.append(eyelid);
     definitions.append(clip);
     const shine = element('g', { 'data-part': 'eye-shine', 'clip-path': `url(#${clipId})` });
@@ -113,6 +114,8 @@ export function mountAvatar(
     config.reducedMotion === 'always' || (config.reducedMotion === 'system' && media.matches);
   const paint = (frame: AvatarFrame) => {
     const p = frame.pose;
+    svg.setAttribute('data-emotion', frame.emotion);
+    const contour = eyePath(p.eyeCurve);
     body.setAttribute(
       'transform',
       `translate(${64 + p.x} ${61 + p.y}) rotate(${p.rotation}) scale(${p.scaleX} ${p.scaleY})`,
@@ -127,11 +130,16 @@ export function mountAvatar(
       `translate(${p.gazeX * Math.cos(p.faceTurn) + Math.sin(p.faceTurn) * 32} ${p.gazeY + frame.faceOffsetY}) scale(${1 / p.scaleX} ${1 / p.scaleY})`,
     );
     face.setAttribute('opacity', String(p.faceOpacity));
-    eyes.forEach(({ x, group, iris, eyelid, shine }, index) => {
+    eyes.forEach(({ group, iris, eyelid, shine }, index) => {
       const side = index === 0 ? 1 : -1;
       iris.setAttribute('fill', frame.eyeColor);
-      group.setAttribute('transform', `translate(${x * perspective} ${p.eyeLift * side})`);
-      const silhouette = `rotate(${p.eyeTilt * side}) scale(${(p.eyeWidth / 2) * perspective} ${(p.eyeHeight / 2) * (1 - p.eyeLift * side * 0.035)})`;
+      group.setAttribute(
+        'transform',
+        `translate(${-side * p.eyeSpacing * perspective} ${p.eyeLift * side})`,
+      );
+      const silhouette = `rotate(${p.eyeTilt * side}) scale(${(p.eyeWidth / 2) * perspective} ${(p.eyeHeight / 2) * (1 + p.eyeAsymmetry * side)})`;
+      iris.setAttribute('d', contour);
+      eyelid.setAttribute('d', contour);
       iris.setAttribute('transform', silhouette);
       eyelid.setAttribute('transform', silhouette);
       shine.setAttribute('opacity', String(Math.max(0, Math.min(1, (p.eyeOpen - 0.3) / 0.7))));
@@ -187,7 +195,7 @@ export function mountAvatar(
       updateLabel();
       // A paused avatar freezes its clock, but remains editable in the studio.
       const edited = (
-        ['shape', 'color', 'state', 'motion', 'seed', 'intensity', 'speed'] as const
+        ['shape', 'color', 'state', 'emotion', 'motion', 'seed', 'intensity', 'speed'] as const
       ).some((key) => previous[key] !== config[key]);
       if (config.paused && edited) paint(engine.step(0, true));
       else render(0);
