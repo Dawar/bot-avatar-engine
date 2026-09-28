@@ -25,3 +25,14 @@ Exercised the local studio in the Codex Chromium browser:
 - No browser error/warning logs were observed in the final browser check.
 
 The preview remains available at http://127.0.0.1:5173 while the development server is running. It is not publicly deployed. DawarTodo itself has not been modified or integration-tested. SVG exports are still images; live animation uses the component or controller.
+
+## Expressive avatars and expanded palette
+
+- Production builds and typechecks pass; the suite now has **16 passing tests**.
+- Added spin coverage for no jump at activation, a visible hop, face hiding on the back, return to the underlying pose, working-state changes during the spin, pause/resume, reduced-motion cancellation, automatic scheduling, and opt-out.
+- All six silhouettes produce distinct paths and finite interrupted morphs. The gallery derives its 36 combinations from the shared definitions.
+- Browser inspected the new cloud and star, rich colors, and large glossy idle eyes. Idle and working reflections retained the same circle radii (2.6, 2.5, 1.15 SVG units per eye); only the eye silhouette receives expression rotation/scaling.
+- The Do a spin button triggered the hop and wraparound face in the browser.
+- The expanded browser gallery exposes all 36 combinations. The final browser check reported no errors or warnings.
+- Installed the updated package tarball in a fresh temporary directory with React/ReactDOM 19.2.6. Verified all six shapes, the compiled spin API and hidden-back pose, and React server rendering without leaking the `playful` configuration into SVG attributes.
+- The ERD preview is now public at https://littlebot.mykiosk.app; see TUNNEL.md for verified readiness and the local DNS-cache limitation encountered at startup. The earlier note about no public deployment describes the initial version.

@@ -4,6 +4,7 @@ import { AvatarEngine, type AvatarEvent } from '../src/engine.js';
 import { advanceSpring, samplePose } from '../src/motion.js';
 import {
   DEFAULT_CONFIG,
+  SHAPES,
   identityFromSeed,
   normalizeConfig,
   parseConfig,
@@ -34,7 +35,7 @@ test('shape, color and style retarget without a discontinuity', () => {
   assert.deepEqual(engine.step(0), before);
   const after = run(engine, 2);
   assert.notEqual(after.path, before.path);
-  assert.equal(after.color, 'rgb(239,153,136)');
+  assert.equal(after.color, 'rgb(255,116,95)');
 });
 test('exact spring solution gives equivalent motion across common frame rates', () => {
   const results = [30, 60, 120].map((fps) => {
@@ -151,4 +152,63 @@ test('explicit reduced-motion configuration also works in the headless core', ()
   const engine = new AvatarEngine({ reducedMotion: 'always' });
   const before = engine.step(1 / 60);
   assert.deepEqual(run(engine, 3), before);
+});
+test('a spin hops, hides its face across the back, and returns continuously to the current state', () => {
+  const engine = new AvatarEngine({ playful: false });
+  const baseline = new AvatarEngine({ playful: false });
+  const before = engine.step(0);
+  assert.equal(engine.play('spin'), true);
+  assert.deepEqual(engine.step(0), before);
+  assert.equal(engine.play('spin'), false);
+  let sawBack = false,
+    sawHop = false;
+  for (let i = 0; i < 150; i++) {
+    if (i === 35) {
+      engine.setOptions({ state: 'working' });
+      baseline.setOptions({ state: 'working' });
+    }
+    const actual = engine.step(1 / 60),
+      rest = baseline.step(1 / 60);
+    sawBack ||= actual.pose.faceOpacity === 0;
+    sawHop ||= actual.pose.y < rest.pose.y - 8;
+    assert.ok(Object.values(actual.pose).every(Number.isFinite));
+    if (i > 100) assert.deepEqual(actual, rest);
+  }
+  assert.ok(sawBack && sawHop);
+});
+test('spins freeze on pause and honor reduced motion', () => {
+  const engine = new AvatarEngine({ playful: false });
+  engine.play('spin');
+  const flying = run(engine, 0.5);
+  engine.setOptions({ paused: true });
+  assert.deepEqual(engine.step(1), flying);
+  assert.equal(engine.play('spin'), false);
+  engine.setOptions({ paused: false, reducedMotion: 'always' });
+  const still = engine.step(0);
+  assert.equal(still.pose.faceTurn, 0);
+  assert.equal(still.pose.faceOpacity, 1);
+  assert.equal(engine.play('spin'), false);
+});
+test('all six silhouettes are distinct and support finite interrupted morphs', () => {
+  const paths = new Set(SHAPES.map((shape) => new AvatarEngine({ shape }).step(0).path));
+  assert.equal(paths.size, SHAPES.length);
+  const engine = new AvatarEngine();
+  for (const shape of SHAPES) {
+    engine.setOptions({ shape });
+    const frame = run(engine, 0.2);
+    assert.ok(!/NaN|Infinity/.test(frame.path));
+  }
+});
+test('idle spins are occasional, seed-staggered, and can be disabled', () => {
+  for (const options of [
+    { playful: true, motion: 'organic' },
+    { playful: false, motion: 'organic' },
+    { playful: true, motion: 'precise' },
+  ] as const) {
+    const events: AvatarEvent[] = [];
+    const engine = new AvatarEngine(options, (event) => events.push(event));
+    run(engine, 26);
+    const spins = events.filter((event) => event.type === 'emote-start');
+    assert.equal(spins.length > 0, options.playful && options.motion === 'organic');
+  }
 });

@@ -1,14 +1,51 @@
 import { SHAPES, type Shape } from './config.js';
 export type Point = readonly [number, number];
-const COUNT = 72;
+const COUNT = 120;
+function polygonRadius(vertices: Point[], x: number, y: number): number {
+  let radius = Infinity;
+  vertices.forEach((a, i) => {
+    const b = vertices[(i + 1) % vertices.length]!;
+    const ex = b[0] - a[0],
+      ey = b[1] - a[1];
+    const cross = x * ey - y * ex;
+    if (Math.abs(cross) < 0.00001) return;
+    const distance = (a[0] * ey - a[1] * ex) / cross;
+    const segment = (a[0] * y - a[1] * x) / cross;
+    if (distance >= 0 && segment >= -0.00001 && segment <= 1.00001)
+      radius = Math.min(radius, distance);
+  });
+  return radius;
+}
 function outline(shape: Shape): Point[] {
   const result: Point[] = [];
+  const vertices: Point[] = Array.from({ length: shape === 'star' ? 10 : 6 }, (_, i) => {
+    const angle = -Math.PI / 2 + (i / (shape === 'star' ? 10 : 6)) * Math.PI * 2;
+    const radius = shape === 'star' ? (i % 2 ? 25 : 45) : 42;
+    return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+  });
   for (let i = 0; i < COUNT; i++) {
     const angle = -Math.PI / 2 + (i / COUNT) * Math.PI * 2;
     const x = Math.cos(angle),
       y = Math.sin(angle);
     let radius = 39;
     if (shape === 'square') radius = 35 / (Math.abs(x) ** 7 + Math.abs(y) ** 7) ** (1 / 7);
+    if (shape === 'star' || shape === 'hexagon') radius = polygonRadius(vertices, x, y);
+    if (shape === 'cloud') {
+      radius = Math.max(
+        ...[
+          [-29, 5, 16],
+          [-15, -9, 19],
+          [10, -13, 23],
+          [28, 4, 16],
+          [0, 8, 28],
+        ].map(([cx, cy, r]) => {
+          const projection = cx! * x + cy! * y;
+          const discriminant = projection ** 2 - (cx! ** 2 + cy! ** 2 - r! ** 2);
+          return discriminant < 0 ? 0 : projection + Math.sqrt(discriminant);
+        }),
+      );
+      if (y > 0) radius = Math.min(radius, 25 / y);
+    }
     if (shape === 'triangle') {
       // Radial intersection of three half-planes; rounded by the shared spline below.
       radius = Math.min(
@@ -24,9 +61,9 @@ function outline(shape: Shape): Point[] {
     }
     result.push([x * radius, y * radius]);
   }
-  // Three local passes soften triangle corners while preserving its clear silhouette.
-  if (shape === 'triangle')
-    for (let pass = 0; pass < 3; pass++) {
+  // Soften corners and cloud joins while preserving each silhouette.
+  if (shape !== 'circle' && shape !== 'square')
+    for (let pass = 0; pass < (shape === 'triangle' || shape === 'cloud' ? 3 : 1); pass++) {
       const copy = result.slice();
       for (let i = 0; i < COUNT; i++) {
         const prev = copy[(i + COUNT - 1) % COUNT]!,

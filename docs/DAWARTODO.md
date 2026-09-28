@@ -44,7 +44,7 @@ export function ThreadAvatar({
 }
 ```
 
-Use the same React key while status changes; remounting an avatar resets its local animation clock. Feed existing subscriptions or job events into the `running` prop. Map real statuses in the consuming app once its requirements are known. This prototype deliberately defines only `idle` and `working`.
+Use the same React key while status changes; remounting an avatar resets its local animation clock. Feed existing subscriptions or job events into the `running` prop. Map real statuses in the consuming app once its requirements are known. This prototype deliberately defines only `idle` and `working`. Transient expressions use `avatarRef.current?.play('spin')`; they do not replace the current state. Use `playful={false}` to suppress spontaneous idle spins in dense task lists.
 
 ## Operational behavior
 

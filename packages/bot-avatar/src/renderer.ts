@@ -1,5 +1,5 @@
 import { AvatarEngine, type AvatarFrame, type AvatarLogger } from './engine.js';
-import { type AvatarConfig } from './config.js';
+import { type AvatarConfig, type AvatarEmote } from './config.js';
 import { subscribe } from './scheduler.js';
 const NS = 'http://www.w3.org/2000/svg';
 function element<K extends keyof SVGElementTagNameMap>(
@@ -17,6 +17,7 @@ export interface MountOptions {
 }
 export interface AvatarController {
   setOptions(options: Partial<AvatarConfig>): void;
+  play(emote: AvatarEmote): boolean;
   getConfig(): AvatarConfig;
   setLabel(label?: string): void;
   /** Downloadable SVG snapshot at the current pose. No scripts or external assets. */
@@ -62,12 +63,48 @@ export function mountAvatar(
   const body = element('g', { 'data-part': 'body' });
   const shape = element('path', { 'data-part': 'shape' });
   const face = element('g', { 'data-part': 'face' });
-  const eyes = [-10, 10].map((x) =>
-    element('rect', { x: String(x - 3.6), width: '7.2', rx: '3.6' }),
-  );
-  face.append(...eyes);
-  body.append(shape, face);
-  svg.replaceChildren(shadow, body);
+  // The silhouette deforms independently. Fixed-size circular reflections are only
+  // occluded by the eyelid, never stretched or tilted into the working expression.
+  const definitions = element('defs');
+  const avatarId = `littlebot-${crypto.randomUUID()}`;
+  const faceClip = element('clipPath', { id: `${avatarId}-body`, clipPathUnits: 'userSpaceOnUse' });
+  const faceBoundary = element('path');
+  faceClip.append(faceBoundary);
+  definitions.append(faceClip);
+  const faceViewport = element('g', { 'clip-path': `url(#${avatarId}-body)` });
+  const eyes = [-12, 12].map((x, index) => {
+    const group = element('g', { 'data-part': 'eye' });
+    const iris = element('ellipse', { rx: '1', ry: '1', 'data-part': 'eye-shape' });
+    const clipId = `${avatarId}-eye-${index}`;
+    const clip = element('clipPath', { id: clipId, clipPathUnits: 'userSpaceOnUse' });
+    const eyelid = element('ellipse', { rx: '1', ry: '1' });
+    clip.append(eyelid);
+    definitions.append(clip);
+    const shine = element('g', { 'data-part': 'eye-shine', 'clip-path': `url(#${clipId})` });
+    shine.append(
+      element('circle', {
+        cx: '0',
+        cy: '7',
+        r: '2.6',
+        fill: '#BCB7D9',
+        opacity: '0.28',
+      }),
+      element('circle', { cx: '-2.6', cy: '-3.3', r: '2.5', fill: '#FFFFFF' }),
+      element('circle', {
+        cx: '3',
+        cy: '3',
+        r: '1.15',
+        fill: '#FFFFFF',
+        opacity: '0.9',
+      }),
+    );
+    group.append(iris, shine);
+    return { x, group, iris, eyelid, shine };
+  });
+  face.append(...eyes.map((eye) => eye.group));
+  faceViewport.append(face);
+  body.append(shape, faceViewport);
+  svg.replaceChildren(definitions, shadow, body);
   let destroyed = false;
   let unsubscribe: (() => void) | undefined;
   let onscreen = true;
@@ -82,15 +119,22 @@ export function mountAvatar(
     );
     shape.setAttribute('d', frame.path);
     shape.setAttribute('fill', frame.color);
-    face.setAttribute('transform', `translate(${p.gazeX} ${p.gazeY + frame.faceOffsetY})`);
-    eyes.forEach((eye, index) => {
-      eye.setAttribute('y', String(-p.eyeHeight / 2));
-      eye.setAttribute('height', String(p.eyeHeight));
-      eye.setAttribute('fill', frame.eyeColor);
-      eye.setAttribute(
-        'transform',
-        `rotate(${p.eyeTilt * (index === 0 ? -1 : 1)} ${index === 0 ? -10 : 10} 0)`,
-      );
+    faceBoundary.setAttribute('d', frame.path);
+    const perspective = Math.max(0.08, Math.cos(p.faceTurn));
+    // Cancel body squash for the face, so even breathing keeps catchlights circular.
+    face.setAttribute(
+      'transform',
+      `translate(${p.gazeX * Math.cos(p.faceTurn) + Math.sin(p.faceTurn) * 32} ${p.gazeY + frame.faceOffsetY}) scale(${1 / p.scaleX} ${1 / p.scaleY})`,
+    );
+    face.setAttribute('opacity', String(p.faceOpacity));
+    eyes.forEach(({ x, group, iris, eyelid, shine }, index) => {
+      const side = index === 0 ? 1 : -1;
+      iris.setAttribute('fill', frame.eyeColor);
+      group.setAttribute('transform', `translate(${x * perspective} ${p.eyeLift * side})`);
+      const silhouette = `rotate(${p.eyeTilt * side}) scale(${(p.eyeWidth / 2) * perspective} ${(p.eyeHeight / 2) * (1 - p.eyeLift * side * 0.035)})`;
+      iris.setAttribute('transform', silhouette);
+      eyelid.setAttribute('transform', silhouette);
+      shine.setAttribute('opacity', String(Math.max(0, Math.min(1, (p.eyeOpen - 0.3) / 0.7))));
     });
     shadow.setAttribute('visibility', config.shadow ? 'visible' : 'hidden');
     shadow.setAttribute('rx', String(25 / p.shadowScale));
@@ -131,6 +175,10 @@ export function mountAvatar(
   render(0);
   reconcile();
   return {
+    play(emote) {
+      if (destroyed) return false;
+      return engine.play(emote, reduced());
+    },
     setOptions(patch) {
       if (destroyed) return;
       const previous = config;

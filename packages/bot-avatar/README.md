@@ -12,7 +12,7 @@ import { BotAvatar } from '@dawartodo/bot-avatar/react';
 
 | Property        | Values / range                                                      | Default     |
 | --------------- | ------------------------------------------------------------------- | ----------- |
-| `shape`         | `circle`, `square`, `triangle`                                      | `circle`    |
+| `shape`         | `circle`, `square`, `triangle`, `cloud`, `star`, `hexagon`          | `circle`    |
 | `color`         | `lilac`, `mint`, `coral`, `sky`, `butter`, `graphite`, or `#RRGGBB` | `lilac`     |
 | `state`         | `idle`, `working`                                                   | `idle`      |
 | `motion`        | `organic`, `springy`, `precise`                                     | `organic`   |
@@ -22,11 +22,24 @@ import { BotAvatar } from '@dawartodo/bot-avatar/react';
 | `transitionMs`  | 150–2000                                                            | 700         |
 | `paused`        | boolean                                                             | false       |
 | `reducedMotion` | `system`, `always`, `never`                                         | `system`    |
+| `playful`       | boolean; occasional idle spins                                      | true        |
 | `shadow`        | boolean                                                             | false       |
 
 `transitionMs` is approximate spring settling time, not a hard deadline. At zero intensity body motion and gaze stop; the avatar can still blink. `paused` freezes the current animation clock. Editing visual options while paused settles them to a static pose. `reducedMotion="always"` disables all movement but keeps the state's expression. Use `never` only for an intentional application override.
 
 `BotAvatar` also accepts `size` (default 64), an accessible `label`, ordinary SVG attributes, `debug`, and `onEvent`. It exposes `toSVG()` through a `BotAvatarHandle` ref; this exports a still snapshot, not an animation. `size` is the whole SVG box, including motion clearance. The colored body occupies roughly 60–65% of that box.
+
+## Expressions and playful moments
+
+Idle eyes are large and glossy, with seeded look-and-linger glances and a small following head tilt. Working eyes become narrower and slanted. The catchlights are fixed-size circles: eye shape, squint, blink, and body squash never distort them. Self-contained clipping paths hide reflections behind eyelids and keep the turning face inside every body shape.
+
+`playful` defaults to `true`. Organic and Springy avatars occasionally do a hop-and-spin while idle, at seed-staggered intervals of roughly 12–24 animation seconds. Set `playful={false}` to disable automatic spins; Precise does not auto-spin. A manual spin is available in every style:
+
+```ts
+controller.play('spin'); // or avatarRef.current?.play('spin') with the React handle
+```
+
+`play()` returns false if paused, reduced motion is active, or a spin is already playing. Spins run over the existing idle/working motion and preserve smooth state changes. Pausing freezes the spin; switching to reduced motion cancels it. Hidden/offscreen avatars freeze their local clock as usual. There is no spin state to persist in application data.
 
 ## Plain browser JavaScript
 
@@ -64,7 +77,7 @@ Exports also include `PALETTE`, `SHAPES`, `STATES`, `MOTION_STYLES`, `DEFAULT_CO
 
 ## Diagnostics
 
-Events include `created`, `updated`, `transition-start`, `transition-settled`, `visibility`, `motion-preference`, and `destroyed`. Payloads contain the public seed, timestamp, and relevant configuration or changed fields. Logging is opt-in and event-based. `getSchedulerStats()` reports active subscribers and whether the shared frame loop is running. Motion updates never log a line per frame.
+Events include `created`, `updated`, `transition-start`, `transition-settled`, `visibility`, `motion-preference`, `emote-start`, `emote-complete`, `emote-skipped`, and `destroyed`. Payloads contain the public seed, timestamp, and relevant configuration or changed fields. Logging is opt-in and event-based. `getSchedulerStats()` reports active subscribers and whether the shared frame loop is running. Motion updates never log a line per frame.
 
 ## Packaging
 

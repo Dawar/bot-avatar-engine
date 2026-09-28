@@ -1,4 +1,4 @@
-import { Moon, Zap, Pause, Play, Download, Sun, Check } from 'lucide-react';
+import { Moon, Zap, Pause, Play, Download, Sun, Check, RotateCw } from 'lucide-react';
 import { BotAvatar, type BotAvatarHandle } from '@dawartodo/bot-avatar/react';
 import type { AvatarConfig, AvatarLogger } from '@dawartodo/bot-avatar';
 import { useEffect, useState, type RefObject } from 'react';
@@ -14,6 +14,7 @@ export function Stage({
   avatarRef,
   onDownload,
   onEvent,
+  onSpin,
 }: {
   config: AvatarConfig;
   onChange: (patch: Partial<AvatarConfig>) => void;
@@ -24,6 +25,7 @@ export function Stage({
   avatarRef: RefObject<BotAvatarHandle | null>;
   onDownload: () => void;
   onEvent: AvatarLogger;
+  onSpin: () => void;
 }) {
   const dark = background === 'dark';
   const [systemReduced, setSystemReduced] = useState(
@@ -134,6 +136,15 @@ export function Stage({
               ))}
             </div>
           </div>
+          <button
+            className="button text-accent"
+            disabled={config.paused || motionReduced}
+            onClick={onSpin}
+            title="Hop and turn all the way around"
+          >
+            <RotateCw size={13} />
+            Do a spin
+          </button>
           <div className="flex items-center gap-2">
             <Toggle label="Auto-cycle states" value={cycle} onChange={onCycle} />
             <span className="text-[11px] text-muted">Auto-cycle</span>

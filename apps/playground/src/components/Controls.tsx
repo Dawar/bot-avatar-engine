@@ -165,6 +165,14 @@ export function Controls({
             />
           </Field>
           <label className="flex items-center justify-between text-xs">
+            Occasional idle spins
+            <Toggle
+              label="Occasional idle spins"
+              value={config.playful}
+              onChange={(playful) => onChange({ playful })}
+            />
+          </label>
+          <label className="flex items-center justify-between text-xs">
             Ground shadow
             <Toggle
               label="Ground shadow"

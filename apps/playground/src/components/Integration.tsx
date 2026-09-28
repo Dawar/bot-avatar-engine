@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Check, Code2, Copy, Download, FileUp, ArrowUpRight } from 'lucide-react';
 import type { AvatarConfig } from '@dawartodo/bot-avatar';
 export function reactSnippet(config: AvatarConfig) {
-  return `'use client';\n\nimport { BotAvatar } from '@dawartodo/bot-avatar/react';\n\nexport function ThreadAvatar({ working = false }) {\n  return (\n    <BotAvatar\n      seed={${JSON.stringify(config.seed)}}\n      shape="${config.shape}"\n      color="${config.color}"\n      motion="${config.motion}"\n      state={working ? 'working' : 'idle'}\n      intensity={${config.intensity}}\n      speed={${config.speed}}\n      transitionMs={${config.transitionMs}}\n      reducedMotion="${config.reducedMotion}"\n      shadow={${config.shadow}}\n      size={40}\n    />\n  );\n}`;
+  return `'use client';\n\nimport { BotAvatar } from '@dawartodo/bot-avatar/react';\n\nexport function ThreadAvatar({ working = false }) {\n  return (\n    <BotAvatar\n      seed={${JSON.stringify(config.seed)}}\n      shape="${config.shape}"\n      color="${config.color}"\n      motion="${config.motion}"\n      state={working ? 'working' : 'idle'}\n      intensity={${config.intensity}}\n      speed={${config.speed}}\n      transitionMs={${config.transitionMs}}\n      reducedMotion="${config.reducedMotion}"\n      playful={${config.playful}}\n      shadow={${config.shadow}}\n      size={40}\n    />\n  );\n}`;
 }
 export function Integration({
   config,
@@ -21,7 +21,7 @@ export function Integration({
       ? reactSnippet(config)
       : tab === 'config'
         ? JSON.stringify(config, null, 2)
-        : `import { mountAvatar } from '@dawartodo/bot-avatar';\n\nconst svg = document.querySelector('#my-bot');\nconst avatar = mountAvatar(svg, ${JSON.stringify({ shape: config.shape, color: config.color, motion: config.motion, seed: config.seed, intensity: config.intensity, speed: config.speed, transitionMs: config.transitionMs, reducedMotion: config.reducedMotion, shadow: config.shadow }, null, 2)});\n\n// Retarget smoothly whenever your bot's status changes.\navatar.setOptions({ state: 'working' });\n\n// Call when your view unmounts.\navatar.destroy();`;
+        : `import { mountAvatar } from '@dawartodo/bot-avatar';\n\nconst svg = document.querySelector('#my-bot');\nconst avatar = mountAvatar(svg, ${JSON.stringify({ shape: config.shape, color: config.color, motion: config.motion, seed: config.seed, intensity: config.intensity, speed: config.speed, transitionMs: config.transitionMs, reducedMotion: config.reducedMotion, shadow: config.shadow, playful: config.playful }, null, 2)});\n\n// Retarget smoothly whenever your bot's status changes.\navatar.setOptions({ state: 'working' });\n\n// Call when your view unmounts.\navatar.destroy();`;
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[1.4fr_1fr]">
       <section className="panel overflow-hidden">

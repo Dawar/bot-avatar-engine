@@ -11,6 +11,7 @@ export {
   parseConfig,
   resolveColor,
   type AvatarConfig,
+  type AvatarEmote,
   type BotState,
   type BotColor,
   type MotionStyle,

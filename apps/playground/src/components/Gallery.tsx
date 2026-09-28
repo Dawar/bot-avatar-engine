@@ -22,7 +22,7 @@ export function Gallery({
         })),
       )
     : colors.map((color, i) => ({
-        shape: SHAPES[i % 3]!,
+        shape: SHAPES[i % SHAPES.length]!,
         color,
         name: names[i]!,
         seed: names[i]!,
@@ -36,12 +36,12 @@ export function Gallery({
           </h2>
           <p className="mt-1.5 text-[11px] text-muted">
             {expanded
-              ? 'All 18 combinations. Pick a starting point and make it your own.'
+              ? `All ${SHAPES.length * colors.length} combinations. Pick a starting point and make it your own.`
               : 'Same little engine. A whole cast of characters. Pick one to play.'}
           </p>
         </div>
         <span className="hidden font-mono text-[10px] text-muted sm:block">
-          {expanded ? '18 COMBINATIONS' : 'THE LITTLEBOT LINEUP'}
+          {expanded ? `${SHAPES.length * colors.length} COMBINATIONS` : 'THE LITTLEBOT LINEUP'}
         </span>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

@@ -1,8 +1,15 @@
 import type { ReactNode } from 'react';
-import { Check, Circle, Square, Triangle } from 'lucide-react';
+import { Check, Circle, Square, Triangle, Cloud, Star, Hexagon } from 'lucide-react';
 import type { Shape } from '@dawartodo/bot-avatar';
 export function ShapeIcon({ shape, size = 18 }: { shape: Shape; size?: number }) {
-  const Icon = { circle: Circle, square: Square, triangle: Triangle }[shape];
+  const Icon = {
+    circle: Circle,
+    square: Square,
+    triangle: Triangle,
+    cloud: Cloud,
+    star: Star,
+    hexagon: Hexagon,
+  }[shape];
   return <Icon size={size} strokeWidth={1.6} />;
 }
 export function Toggle({

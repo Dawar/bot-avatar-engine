@@ -4,9 +4,19 @@ import {
   SHAPES,
   normalizeConfig,
   resolveColor,
+  hashSeed,
   type AvatarConfig,
+  type AvatarEmote,
 } from './config.js';
-import { advanceSpring, blendPoses, samplePose, type Pose, type Spring } from './motion.js';
+import {
+  advanceSpring,
+  applySpin,
+  blendPoses,
+  samplePose,
+  SPIN_DURATION,
+  type Pose,
+  type Spring,
+} from './motion.js';
 import { shapePath } from './geometry.js';
 export interface AvatarFrame {
   pose: Pose;
@@ -24,6 +34,9 @@ export interface AvatarEvent {
     | 'transition-settled'
     | 'visibility'
     | 'motion-preference'
+    | 'emote-start'
+    | 'emote-complete'
+    | 'emote-skipped'
     | 'destroyed';
   seed: string | number;
   timestamp: number;
@@ -45,6 +58,8 @@ export class AvatarEngine {
   private transitioning = false;
   private cachedWeights = '';
   private cachedPath = '';
+  private spinElapsed: number | null = null;
+  private nextSpinAt: number;
   constructor(
     options: Partial<AvatarConfig> = {},
     private logger?: AvatarLogger,
@@ -56,6 +71,7 @@ export class AvatarEngine {
     this.color = rgb(resolveColor(this.config.color)).map(spring);
     this.intensity = spring(this.config.intensity);
     this.speed = spring(this.config.speed);
+    this.nextSpinAt = this.spinInterval();
     this.log('created', { config: this.getConfig() });
   }
   getConfig(): AvatarConfig {
@@ -69,6 +85,7 @@ export class AvatarEngine {
     if (!changed.length) return;
     const previousState = this.config.state;
     this.config = next;
+    if (changed.includes('seed')) this.nextSpinAt = this.time + this.spinInterval();
     this.log('updated', { changed, config: this.getConfig() });
     if (
       changed.some((key) =>
@@ -83,6 +100,28 @@ export class AvatarEngine {
         durationMs: next.transitionMs,
       });
     }
+  }
+  private spinInterval() {
+    return 12 + (hashSeed(this.config.seed) % 1200) / 100;
+  }
+  /** Returns false when paused, reduced-motion, or already playing; never snaps a running spin. */
+  play(emote: AvatarEmote, reduced = false, source: 'manual' | 'automatic' = 'manual'): boolean {
+    if (emote !== 'spin') throw new TypeError('Unknown avatar emote.');
+    const reason = this.config.paused
+      ? 'paused'
+      : reduced || this.config.reducedMotion === 'always'
+        ? 'reduced-motion'
+        : this.spinElapsed !== null
+          ? 'already-playing'
+          : null;
+    if (reason) {
+      this.log('emote-skipped', { emote, reason });
+      return false;
+    }
+    this.spinElapsed = 0;
+    this.nextSpinAt = this.time + this.spinInterval();
+    this.log('emote-start', { emote, source, durationSeconds: SPIN_DURATION });
+    return true;
   }
   /** No ambient clock or DOM dependency: usable in tests, SSR, or a custom renderer. */
   step(deltaSeconds: number, reduced = false): AvatarFrame {
@@ -108,6 +147,29 @@ export class AvatarEngine {
       } else advanceSpring(value, target, dt, this.config.transitionMs);
     }
     if (!reduced) this.time += dt * this.speed.value;
+    if (this.spinElapsed !== null) {
+      this.spinElapsed += reduced ? 0 : dt * this.speed.value;
+      if (reduced || this.spinElapsed >= SPIN_DURATION) {
+        this.spinElapsed = null;
+        this.log('emote-complete', {
+          emote: 'spin',
+          reason: reduced ? 'reduced-motion' : 'finished',
+        });
+      }
+    }
+    if (
+      !reduced &&
+      !this.config.paused &&
+      this.spinElapsed === null &&
+      this.config.playful &&
+      this.config.state === 'idle' &&
+      this.energy.value < 0.05 &&
+      this.config.motion !== 'precise' &&
+      this.config.intensity > 0 &&
+      this.time >= this.nextSpinAt
+    ) {
+      this.play('spin', false, 'automatic');
+    }
     if (
       this.transitioning &&
       targets.every(
@@ -124,24 +186,26 @@ export class AvatarEngine {
       this.cachedWeights = weightsKey;
     }
     const colorValues = this.color.map((s) => Math.round(Math.max(0, Math.min(255, s.value))));
-    return {
-      pose: blendPoses(
-        MOTION_STYLES.map((style) =>
-          samplePose(
-            this.time,
-            this.config.seed,
-            this.energy.value,
-            style,
-            this.intensity.value,
-            reduced,
-          ),
+    let pose = blendPoses(
+      MOTION_STYLES.map((style) =>
+        samplePose(
+          this.time,
+          this.config.seed,
+          this.energy.value,
+          style,
+          this.intensity.value,
+          reduced,
         ),
-        this.style.map((s) => s.value),
       ),
+      this.style.map((s) => s.value),
+    );
+    if (this.spinElapsed !== null) pose = applySpin(pose, this.spinElapsed, this.intensity.value);
+    return {
+      pose,
       path: this.cachedPath,
       color: `rgb(${colorValues.join(',')})`,
       eyeColor: '#252536',
-      faceOffsetY: weights[2]! * 6,
+      faceOffsetY: weights[2]! * 10,
       energy: this.energy.value,
     };
   }

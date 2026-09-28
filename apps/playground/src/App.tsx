@@ -210,6 +210,7 @@ export function App() {
                 setBackground={setBackground}
                 avatarRef={avatarRef}
                 onEvent={eventLogger}
+                onSpin={() => avatarRef.current?.play('spin')}
                 onDownload={() => {
                   const svg = avatarRef.current?.toSVG();
                   if (svg) {

@@ -1,19 +1,20 @@
-export const SHAPES = ['circle', 'square', 'triangle'] as const;
+export const SHAPES = ['circle', 'square', 'triangle', 'cloud', 'star', 'hexagon'] as const;
 export const STATES = ['idle', 'working'] as const;
 export const MOTION_STYLES = ['organic', 'springy', 'precise'] as const;
 export const PALETTE = {
-  lilac: '#ADA0E8',
-  mint: '#9BC9B0',
-  coral: '#EF9988',
-  sky: '#91B9DA',
-  butter: '#EACB79',
-  graphite: '#73798B',
+  lilac: '#9564F4',
+  mint: '#36CFA0',
+  coral: '#FF745F',
+  sky: '#419DF5',
+  butter: '#F3BE3D',
+  graphite: '#6679B8',
 } as const;
 export type Shape = (typeof SHAPES)[number];
 export type BotState = (typeof STATES)[number];
 export type MotionStyle = (typeof MOTION_STYLES)[number];
 export type BotColor = keyof typeof PALETTE | `#${string}`;
 export type ReducedMotion = 'system' | 'always' | 'never';
+export type AvatarEmote = 'spin';
 export interface AvatarConfig {
   shape: Shape;
   color: BotColor;
@@ -30,6 +31,8 @@ export interface AvatarConfig {
   paused: boolean;
   reducedMotion: ReducedMotion;
   shadow: boolean;
+  /** Occasional idle hop-and-spins in organic and springy motion styles. */
+  playful: boolean;
 }
 export const DEFAULT_CONFIG: Readonly<AvatarConfig> = Object.freeze({
   shape: 'circle',
@@ -43,6 +46,7 @@ export const DEFAULT_CONFIG: Readonly<AvatarConfig> = Object.freeze({
   paused: false,
   reducedMotion: 'system',
   shadow: false,
+  playful: true,
 });
 export function resolveColor(color: BotColor): string {
   if (Object.prototype.hasOwnProperty.call(PALETTE, color))
@@ -85,7 +89,9 @@ export function normalizeConfig(
     );
   }
   check(
-    typeof config.paused === 'boolean' && typeof config.shadow === 'boolean',
+    typeof config.paused === 'boolean' &&
+      typeof config.shadow === 'boolean' &&
+      typeof config.playful === 'boolean',
     'boolean options',
   );
   resolveColor(config.color);
@@ -105,7 +111,7 @@ export function identityFromSeed(
   return {
     seed,
     shape: SHAPES[hash % SHAPES.length]!,
-    color: colors[Math.floor(hash / 3) % colors.length]!,
+    color: colors[Math.floor(hash / SHAPES.length) % colors.length]!,
   };
 }
 export function parseConfig(json: string): AvatarConfig {

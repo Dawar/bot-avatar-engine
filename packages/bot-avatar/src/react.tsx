@@ -1,6 +1,6 @@
 'use client';
 import { forwardRef, useEffect, useImperativeHandle, useRef, type SVGProps } from 'react';
-import { type AvatarConfig } from './config.js';
+import { type AvatarConfig, type AvatarEmote } from './config.js';
 import { mountAvatar, type AvatarController } from './renderer.js';
 import { type AvatarLogger } from './engine.js';
 export interface BotAvatarProps
@@ -12,6 +12,7 @@ export interface BotAvatarProps
 }
 export interface BotAvatarHandle {
   toSVG(): string | undefined;
+  play(emote: AvatarEmote): boolean;
 }
 /** Renders once per prop change. Animation updates SVG attributes outside React. */
 export const BotAvatar = forwardRef<BotAvatarHandle, BotAvatarProps>(function BotAvatar(
@@ -27,6 +28,7 @@ export const BotAvatar = forwardRef<BotAvatarHandle, BotAvatarProps>(function Bo
     paused,
     reducedMotion,
     shadow,
+    playful,
     size = 64,
     label,
     debug = false,
@@ -53,9 +55,17 @@ export const BotAvatar = forwardRef<BotAvatarHandle, BotAvatarProps>(function Bo
     paused,
     reducedMotion,
     shadow,
+    playful,
   };
   const initial = useRef({ options, label });
-  useImperativeHandle(forwardedRef, () => ({ toSVG: () => controller.current?.toSVG() }), []);
+  useImperativeHandle(
+    forwardedRef,
+    () => ({
+      toSVG: () => controller.current?.toSVG(),
+      play: (emote) => controller.current?.play(emote) ?? false,
+    }),
+    [],
+  );
   useEffect(() => {
     if (!svg.current) return;
     controller.current = mountAvatar(svg.current, initial.current.options, {
@@ -84,6 +94,7 @@ export const BotAvatar = forwardRef<BotAvatarHandle, BotAvatarProps>(function Bo
     paused,
     reducedMotion,
     shadow,
+    playful,
   ]);
   useEffect(() => {
     controller.current?.setLabel(label);

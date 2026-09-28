@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
 export default defineConfig({
+  server: { allowedHosts: ['littlebot.mykiosk.app'] },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: [
